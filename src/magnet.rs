@@ -11,8 +11,11 @@ pub enum MagnetError {
     #[error("missing tracker")]
     MissingTracker,
 
-    #[error("wrong prefix")]
-    WrongPrefix,
+    #[error("invalid tracker: {0}")]
+    InvalidTracker(String),
+
+    #[error("wrong prefix: {0}")]
+    WrongPrefix(String),
 
     #[error("{0}")]
     InfoHash(#[from] InfoHashError),
@@ -30,7 +33,9 @@ impl TryFrom<&str> for MagnetUri {
     type Error = MagnetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let value = value.strip_prefix(PREFIX).ok_or(MagnetError::WrongPrefix)?;
+        let value = value
+            .strip_prefix(PREFIX)
+            .ok_or(MagnetError::WrongPrefix(value[..PREFIX.len()].to_owned()))?;
 
         let pairs: Vec<_> = value
             .split(|c| c == '&')
@@ -43,8 +48,13 @@ impl TryFrom<&str> for MagnetUri {
             Some(xt) if xt.starts_with(URN_V1) && xt.len() - URN_V1.len() == 40 => {
                 InfoHash::from_sha1(&xt[URN_V1.len()..])
             }
-            Some(xt) if xt.starts_with(URN_V2) => InfoHash::parse(&xt[URN_V2.len()..])?,
-            Some(_) | None => {
+            Some(xt) if xt.starts_with(URN_V2) && xt.len() - URN_V2.len() == 64 => {
+                InfoHash::from_sha256(&xt[URN_V2.len()..])
+            }
+            Some(xt) => {
+                return Err(MagnetError::InvalidTracker(xt));
+            }
+            None => {
                 return Err(MagnetError::MissingTracker);
             }
         };
@@ -58,28 +68,14 @@ impl TryFrom<&str> for MagnetUri {
     }
 }
 
-pub enum Message {
-    Request,
-    Data(Vec<u8>),
-    Reject,
-}
-
-impl From<&Message> for u8 {
-    fn from(parts: &Message) -> Self {
-        match parts {
-            Message::Request { .. } => 0,
-            Message::Data { .. } => 1,
-            Message::Reject { .. } => 2,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::infohash::InfoHash;
+
     use super::MagnetUri;
 
     #[test]
-    fn it_works() {
+    fn decode() {
         let samples = [
             "magnet:?xt=urn:btih:807646161c8bad88781761dfc759eef870421098&dn=%5BLeopard-Raws%5D%\
              20%E3%81%AB%E3%82%83%E3%82%93%E3%81%93%E3%81%84%EF%BC%81%20%2307%20%28D-TBS%\
@@ -102,8 +98,17 @@ mod tests {
 
         for sample in samples {
             let ok = MagnetUri::try_from(sample).unwrap();
-
-            dbg!(&ok);
         }
+    }
+
+    fn encode() {
+        let magnet = MagnetUri {
+            hash: InfoHash::from_sha1("8a173fd3e32c0fa78b90fe42d305f202244e2739"),
+            name: Some("サイコパス".to_owned()),
+            tracker_url: Some("udp://tracker.torrent.eu.org:451/announce".to_owned()),
+            peer_addr: Some("http://[1fff:0:a88:85a3::ac1f]:8001/index.html".to_owned()),
+        };
+
+        // assert_eq!(magnet.encode(), "magnet:?xt=urn:btih:8a173fd3e32c0fa78b90fe42d305f202244e2739&dn=%E3%82%B5%E3%82%A4%E3%82%B3%E3%83%91%E3%82%B9&tr=udp://tracker.torrent.eu.org:451/announce&x.pe=http://[1fff:0:a88:85a3::ac1f]:8001/index.html");
     }
 }

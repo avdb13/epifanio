@@ -5,9 +5,6 @@ pub enum InfoHashError {
     #[error("multihash must be at least 4 characters long")]
     TooShort(usize),
 
-    #[error("unknown error")]
-    TryInto,
-
     #[error("invalid hash function code: {0}")]
     UnknownCode(String),
 
@@ -22,10 +19,6 @@ pub enum InfoHashError {
 pub enum HashFn {
     SHA1 = 0x11,
     SHA2_256 = 0x12,
-    SHA2_512 = 0x13,
-    SHA3 = 0x14,
-    BLAKE2b = 0x40,
-    BLAKE2s = 0x41,
 }
 
 #[derive(Debug)]
@@ -34,7 +27,7 @@ pub struct InfoHash {
     pub value: Box<str>,
 }
 
-impl InfoHash {
+impl<'a> InfoHash {
     pub fn from_sha1(v: &str) -> Self {
         Self {
             hash_fn: HashFn::SHA1,
@@ -42,33 +35,18 @@ impl InfoHash {
         }
     }
 
-    pub fn parse(v: &str) -> Result<Self, InfoHashError> {
-        if v.len() <= 4 {
-            return Err(InfoHashError::TooShort(v.len()));
+    pub fn from_sha256(v: &str) -> Self {
+        Self {
+            hash_fn: HashFn::SHA2_256,
+            value: Box::from(v),
         }
+    }
 
-        let (metadata, hash) = v.split_at(4);
-        let (code, length) = metadata.split_at(2);
+    pub fn encode(self) -> [u8; 40] {
+        let mut result = [0; 40];
+        hex::encode_to_slice(self.value.as_bytes(), &mut result)
+            .expect("couldn't encode hexadecimal form of hash");
 
-        let expected_length = u8::from_str_radix(length, 16)
-            .map_err(|_| InfoHashError::MalformedLength(length.to_owned()))?;
-        if hash.len() as u8 != expected_length * 2 {
-            return Err(InfoHashError::MalformedHash(hash.len(), expected_length));
-        }
-
-        let hash_fn = match code {
-            "11" => HashFn::SHA1,
-            "12" => HashFn::SHA2_256,
-            "13" => HashFn::SHA2_512,
-            "14" => HashFn::SHA3,
-            "40" => HashFn::BLAKE2b,
-            "41" => HashFn::BLAKE2s,
-            _ => return Err(InfoHashError::UnknownCode(code.to_owned())),
-        };
-
-        Ok(Self {
-            hash_fn,
-            value: Box::from(hash),
-        })
+        result
     }
 }
