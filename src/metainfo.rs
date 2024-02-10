@@ -1,4 +1,4 @@
-use crate::tracker::InfoHash;
+use crate::infohash::InfoHash;
 
 pub struct MetaInfo {
     info: Info,

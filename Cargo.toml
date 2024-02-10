@@ -8,4 +8,7 @@ license = "AGPL-3.0-or-later"
 edition = "2021"
 
 [dependencies]
+bendy = "0.3.3"
+fxhash = "0.2.1"
 rand = "0.8.5"
+thiserror = "1.0.56"

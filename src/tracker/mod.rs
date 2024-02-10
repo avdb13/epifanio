@@ -1,6 +1,9 @@
 use rand::Rng;
 
-use crate::util::{SocketAddr, PeerId, InfoHash};
+use crate::{
+    infohash::InfoHash,
+    util::{PeerId, SocketAddr},
+};
 
 pub trait TrackerLike {}
 
@@ -10,7 +13,7 @@ pub struct ConnId(u64);
 
 impl Default for ConnId {
     fn default() -> Self {
-       Self(rand::thread_rng().gen())
+        Self(rand::thread_rng().gen())
     }
 }
 
@@ -18,7 +21,7 @@ pub struct TxnId(u32);
 
 impl Default for TxnId {
     fn default() -> Self {
-       Self(rand::thread_rng().gen())
+        Self(rand::thread_rng().gen())
     }
 }
 
@@ -64,14 +67,17 @@ impl From<&RequestParts> for u8 {
         match parts {
             RequestParts::Connect { .. } => 0,
             RequestParts::Announce { .. } => 1,
-            RequestParts::Scrape { .. } => 3,
+            RequestParts::Scrape { .. } => 2,
         }
     }
 }
 
 impl Request {
     fn new(parts: RequestParts) -> Self {
-        Self { parts, txn_id: TxnId::default() }
+        Self {
+            parts,
+            txn_id: TxnId::default(),
+        }
     }
 }
 
@@ -98,12 +104,9 @@ impl Tracker {
         Self::default()
     }
 
-    fn connect() {
-    }
+    fn connect() {}
 
-    fn announce() {
-    }
+    fn announce() {}
 
-    fn scrape() {
-    }
+    fn scrape() {}
 }
